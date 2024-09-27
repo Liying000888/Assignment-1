@@ -1,0 +1,130 @@
+---
+title: "PM566 Assignment 1"
+format: html
+editor: visual
+---
+#Name:Liying Deng
+
+```{r}
+library(data.table)
+library(dplyr)
+library(tidyverse)
+library(leaflet)
+```
+
+#Question 1
+```{r}
+Dataset2022 <- data.table::fread("/Users/kristydeng/Downloads/2022 Dataset.csv")
+Dataset2002 <-data.table::fread("/Users/kristydeng/Downloads/2002 Dataset.csv")
+```
+
+#Question 2
+```{r}
+dataset2002 <- fread("/Users/kristydeng/Downloads/2002 Dataset.csv")  
+dataset2022 <- fread("/Users/kristydeng/Downloads/2022 Dataset.csv")
+dataset2002 <- dataset2002 %>%
+  mutate(Year = 2002)
+dataset2022 <- dataset2022 %>%
+  mutate(Year = 2022)
+colnames(dataset2002)
+colnames(dataset2022)
+combined_data <- bind_rows(dataset2002, dataset2022)
+print(head(combined_data))
+setnames(combined_data, old = "Daily Mean PM2.5 Concentration", new = "PM2.5")
+setnames(combined_data, old = "Site Latitude", new = "Latitude")
+setnames(combined_data, old = "Site Longitude", new = "Longitude")
+setnames(combined_data, old = "Local Site Name", new = "Site")
+setnames(combined_data, old = "Daily Obs Count", new = "Obs.Count")
+setnames(combined_data, old = "Daily AQI Value", new = "AQI")
+```
+
+#Question 3
+```{r}
+unique_years <- unique(combined_data$Year)
+print(unique_years)
+pal <- colorFactor(
+  palette = c("red", "blue"),  
+  domain = unique_years 
+)
+leaflet(combined_data) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    lng = ~Longitude, lat = ~Latitude,
+    color = ~pal(Year), 
+    popup = ~Site,  
+    label = ~paste("Year:", Year, "<br>Site:", Site),  
+    radius = 6, 
+    stroke = FALSE, fillOpacity = 0.8  
+  ) %>%
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = ~Year,
+    title = "Year",
+    opacity = 1
+  )
+```
+
+#Question 4
+```{r}
+summary_stats <- combined_data %>%
+  summarise(
+    total_observations = n(),
+    missing_values = sum(is.na(PM2.5)),
+    missing_proportion = mean(is.na(PM2.5)),
+    min_PM2.5 = min(PM2.5, na.rm = TRUE),
+    max_PM2.5 = max(PM2.5, na.rm = TRUE),
+    outliers = sum(PM2.5 < 0 | PM2.5 > 400, na.rm = TRUE), 
+    outliers_proportion = mean(PM2.5 < 0 | PM2.5 > 400, na.rm = TRUE)
+  )
+(summary_stats)
+cleaned_data <- combined_data %>%
+  filter(PM2.5 >= 0 & PM2.5 <= 400)
+(head(cleaned_data))
+```
+#Question 5
+```{r}
+state_summary <- combined_data %>%
+  group_by(State) %>%
+  summarise(
+    mean_PM2.5 = mean(PM2.5, na.rm = TRUE),
+    median_PM2.5 = median(PM2.5, na.rm = TRUE),
+    sd_PM2.5 = sd(PM2.5, na.rm = TRUE),
+    count = n()
+  )
+(state_summary)
+ggplot(combined_data, aes(x = State, y = PM2.5, fill = State)) +
+  geom_boxplot() +
+  labs(title = "PM2.5 Levels by State", x = "State", y = "PM2.5") +
+  theme_minimal()
+county_summary <- combined_data %>%
+  group_by(County) %>%
+  summarise(
+    mean_PM2.5 = mean(PM2.5, na.rm = TRUE),
+    median_PM2.5 = median(PM2.5, na.rm = TRUE),
+    sd_PM2.5 = sd(PM2.5, na.rm = TRUE),
+    count = n()
+  )
+(county_summary)
+ggplot(combined_data, aes(x = PM2.5, fill = County)) +
+  geom_histogram(bins = 20, alpha = 0.6, position = "identity") +
+  facet_wrap(~ County) +
+  labs(title = "Distribution of PM2.5 Levels by County", x = "PM2.5", y = "Frequency") +
+  theme_minimal()
+la_sites <- combined_data %>%
+  filter(County == "Los Angeles")
+site_summary <- la_sites %>%
+  group_by(Site) %>%
+  summarise(
+    mean_PM2.5 = mean(PM2.5, na.rm = TRUE),
+    median_PM2.5 = median(PM2.5, na.rm = TRUE),
+    sd_PM2.5 = sd(PM2.5, na.rm = TRUE),
+    count = n()
+  )
+(site_summary)
+ggplot(la_sites, aes(x = Date, y = PM2.5, color = Site)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(title = "PM2.5 Levels Over Time by Site in Los Angeles", x = "Date", y = "PM2.5 ") +
+  theme_minimal()
+```
